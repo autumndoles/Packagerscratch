@@ -1,15 +1,17 @@
 "use strict";
 
-// Battledisk Packager
+// ============================================================
+// BATTLEDISK PACKAGER
 // Scratch .sb3 -> standalone HTML
+// ============================================================
 
 let currentProject = null;
 let currentAssets = {};
 let currentFileName = null;
 
-// --------------------------------------------------
+// ============================================================
 // Helpers
-// --------------------------------------------------
+// ============================================================
 
 function $(id) {
     return document.getElementById(id);
@@ -84,7 +86,10 @@ function arrayBufferToBase64(buffer) {
     ) {
         const chunk = bytes.subarray(
             i,
-            Math.min(i + chunkSize, bytes.length)
+            Math.min(
+                i + chunkSize,
+                bytes.length
+            )
         );
 
         binary += String.fromCharCode(...chunk);
@@ -102,9 +107,9 @@ function makeDataURL(filename, buffer) {
     );
 }
 
-// --------------------------------------------------
+// ============================================================
 // Project information
-// --------------------------------------------------
+// ============================================================
 
 function getProjectName(project, fallback) {
     if (project.projectName) {
@@ -113,20 +118,6 @@ function getProjectName(project, fallback) {
 
     if (project.name) {
         return project.name;
-    }
-
-    if (Array.isArray(project.targets)) {
-        const stage = project.targets.find(
-            target => target.isStage
-        );
-
-        if (
-            stage &&
-            stage.name &&
-            stage.name !== "Stage"
-        ) {
-            return stage.name;
-        }
     }
 
     return fallback.replace(
@@ -141,11 +132,12 @@ function countTargets(project) {
         : 0;
 }
 
-// --------------------------------------------------
+// ============================================================
 // Load SB3
-// --------------------------------------------------
+// ============================================================
 
 async function loadSB3(file) {
+
     if (!file) {
         throw new Error(
             "No .sb3 file selected."
@@ -168,7 +160,9 @@ async function loadSB3(file) {
         );
     }
 
-    setStatus("Opening project...");
+    setStatus(
+        "Opening Scratch project..."
+    );
 
     const buffer =
         await file.arrayBuffer();
@@ -185,7 +179,9 @@ async function loadSB3(file) {
         );
     }
 
-    setStatus("Reading project.json...");
+    setStatus(
+        "Reading project.json..."
+    );
 
     const projectText =
         await projectFile.async("text");
@@ -195,7 +191,7 @@ async function loadSB3(file) {
     try {
         project =
             JSON.parse(projectText);
-    } catch {
+    } catch (error) {
         throw new Error(
             "project.json contains invalid JSON."
         );
@@ -214,9 +210,12 @@ async function loadSB3(file) {
     currentFileName = file.name;
     currentAssets = {};
 
-    setStatus("Extracting assets...");
+    setStatus(
+        "Extracting project assets..."
+    );
 
     for (const entry of Object.values(zip.files)) {
+
         if (entry.dir) {
             continue;
         }
@@ -226,17 +225,22 @@ async function loadSB3(file) {
         }
 
         try {
+
             const assetBuffer =
-                await entry.async("arraybuffer");
+                await entry.async(
+                    "arraybuffer"
+                );
 
             currentAssets[entry.name] =
                 makeDataURL(
                     entry.name,
                     assetBuffer
                 );
+
         } catch (error) {
+
             console.warn(
-                "Could not extract:",
+                "Could not extract asset:",
                 entry.name,
                 error
             );
@@ -249,15 +253,16 @@ async function loadSB3(file) {
         `Loaded ${getProjectName(
             project,
             file.name
-        )}`
+        )} — ready to package.`
     );
 }
 
-// --------------------------------------------------
+// ============================================================
 // UI
-// --------------------------------------------------
+// ============================================================
 
 function updateProjectInfo() {
+
     if (!currentProject) {
         return;
     }
@@ -269,10 +274,14 @@ function updateProjectInfo() {
         );
 
     const targets =
-        countTargets(currentProject);
+        countTargets(
+            currentProject
+        );
 
     const assets =
-        Object.keys(currentAssets).length;
+        Object.keys(
+            currentAssets
+        ).length;
 
     if ($("projectName")) {
         $("projectName").textContent =
@@ -292,11 +301,12 @@ function updateProjectInfo() {
     }
 }
 
-// --------------------------------------------------
+// ============================================================
 // Generate HTML
-// --------------------------------------------------
+// ============================================================
 
 function generateHTML() {
+
     if (!currentProject) {
         throw new Error(
             "Load a project first."
@@ -312,16 +322,24 @@ function generateHTML() {
 
     const build = {
         format: "Battledisk HTML",
-        version: "0.1.0",
-        project: currentProject,
-        assets: currentAssets
+        version: "0.2.0",
+
+        project:
+            currentProject,
+
+        assets:
+            currentAssets
     };
 
     const buildJSON =
-        safeJSONStringify(build);
+        safeJSONStringify(
+            build
+        );
 
     const title =
-        escapeHTML(projectName);
+        escapeHTML(
+            projectName
+        );
 
     return `<!DOCTYPE html>
 <html lang="en">
@@ -344,6 +362,7 @@ function generateHTML() {
 
 html,
 body {
+
     margin: 0;
     padding: 0;
 
@@ -353,9 +372,11 @@ body {
     overflow: hidden;
 
     background: #000;
+
 }
 
 body {
+
     position: fixed;
 
     left: 0;
@@ -363,10 +384,10 @@ body {
 
     width: 100vw;
     height: 100vh;
+
 }
 
 #stage {
-    display: block;
 
     position: absolute;
 
@@ -376,10 +397,14 @@ body {
     width: 100vw;
     height: 100vh;
 
+    display: block;
+
     background: white;
+
 }
 
 #loading {
+
     position: absolute;
 
     left: 50%;
@@ -388,13 +413,15 @@ body {
     transform:
         translate(-50%, -50%);
 
-    font-family: Arial, sans-serif;
+    font-family:
+        Arial, sans-serif;
 
     font-size: 20px;
 
     color: black;
 
     pointer-events: none;
+
 }
 
 </style>
@@ -410,7 +437,7 @@ body {
 ></canvas>
 
 <div id="loading">
-    Loading...
+    Loading Battledisk...
 </div>
 
 <script
@@ -424,9 +451,9 @@ ${buildJSON}
 
 "use strict";
 
-// --------------------------------------------------
-// Battledisk Runtime
-// --------------------------------------------------
+// ============================================================
+// BATTLEDISK RUNTIME
+// ============================================================
 
 const BUILD =
     JSON.parse(
@@ -449,65 +476,482 @@ const canvas =
     );
 
 const ctx =
-    canvas.getContext("2d");
+    canvas.getContext(
+        "2d"
+    );
 
 const loading =
     document.getElementById(
         "loading"
     );
 
-// --------------------------------------------------
-// Scratch coordinate system
-// --------------------------------------------------
+// ============================================================
+// Scratch stage
+// ============================================================
 
 const SCRATCH_WIDTH = 480;
 const SCRATCH_HEIGHT = 360;
 
-// --------------------------------------------------
-// Fullscreen canvas
-// --------------------------------------------------
+let scale = 1;
+
+let offsetX = 0;
+let offsetY = 0;
+
+// ============================================================
+// Canvas resizing
+// ============================================================
 
 function resizeCanvas() {
 
-    const width =
+    canvas.width =
         window.innerWidth;
 
-    const height =
+    canvas.height =
         window.innerHeight;
 
-    canvas.width = width;
-    canvas.height = height;
+    calculateScale();
 }
 
-// --------------------------------------------------
-// Coordinate conversion
-// --------------------------------------------------
+// ============================================================
+// Scratch -> browser coordinates
+// ============================================================
 
-function scratchX(x) {
+function calculateScale() {
+
+    const scaleX =
+        canvas.width /
+        SCRATCH_WIDTH;
+
+    const scaleY =
+        canvas.height /
+        SCRATCH_HEIGHT;
+
+    // Preserve Scratch's aspect ratio.
+    scale =
+        Math.min(
+            scaleX,
+            scaleY
+        );
+
+    offsetX =
+        (
+            canvas.width -
+            SCRATCH_WIDTH * scale
+        ) / 2;
+
+    offsetY =
+        (
+            canvas.height -
+            SCRATCH_HEIGHT * scale
+        ) / 2;
+}
+
+function toCanvasX(x) {
 
     return (
-        canvas.width / 2 +
-        x *
-        (canvas.width /
-         SCRATCH_WIDTH)
+        offsetX +
+        (x +
+        SCRATCH_WIDTH / 2) *
+        scale
     );
 }
 
-function scratchY(y) {
+function toCanvasY(y) {
 
     return (
-        canvas.height / 2 -
-        y *
-        (canvas.height /
-         SCRATCH_HEIGHT)
+        offsetY +
+        (SCRATCH_HEIGHT / 2 -
+        y) *
+        scale
     );
 }
 
-// --------------------------------------------------
-// Stage
-// --------------------------------------------------
+// ============================================================
+// Asset lookup
+// ============================================================
 
-function clearStage() {
+function findAsset(md5ext) {
+
+    if (!md5ext) {
+        return null;
+    }
+
+    if (ASSETS[md5ext]) {
+        return ASSETS[md5ext];
+    }
+
+    const baseName =
+        md5ext.split(".")[0];
+
+    for (
+        const filename
+        of Object.keys(ASSETS)
+    ) {
+
+        if (
+            filename.split(".")[0] ===
+            baseName
+        ) {
+            return ASSETS[filename];
+        }
+    }
+
+    return null;
+}
+
+// ============================================================
+// Load image
+// ============================================================
+
+function loadImage(src) {
+
+    return new Promise(
+        (resolve, reject) => {
+
+            const image =
+                new Image();
+
+            image.onload = () => {
+                resolve(image);
+            };
+
+            image.onerror = () => {
+                reject(
+                    new Error(
+                        "Could not load image."
+                    )
+                );
+            };
+
+            image.src = src;
+        }
+    );
+}
+
+// ============================================================
+// Draw stage backdrop
+// ============================================================
+
+async function drawBackdrop() {
+
+    const stage =
+        PROJECT.targets.find(
+            target =>
+                target.isStage
+        );
+
+    if (!stage) {
+        return;
+    }
+
+    const costumes =
+        stage.costumes || [];
+
+    if (!costumes.length) {
+        return;
+    }
+
+    let costumeIndex =
+        Number(
+            stage.currentCostume
+        );
+
+    if (
+        !Number.isFinite(
+            costumeIndex
+        )
+    ) {
+        costumeIndex = 0;
+    }
+
+    costumeIndex =
+        Math.max(
+            0,
+            Math.min(
+                costumeIndex,
+                costumes.length - 1
+            )
+        );
+
+    const costume =
+        costumes[
+            costumeIndex
+        ];
+
+    const src =
+        findAsset(
+            costume.md5ext
+        );
+
+    if (!src) {
+
+        console.warn(
+            "Backdrop asset not found:",
+            costume.md5ext
+        );
+
+        return;
+    }
+
+    try {
+
+        const image =
+            await loadImage(
+                src
+            );
+
+        const width =
+            costume.bitmapResolution
+                ? image.width /
+                  costume.bitmapResolution
+                : image.width;
+
+        const height =
+            costume.bitmapResolution
+                ? image.height /
+                  costume.bitmapResolution
+                : image.height;
+
+        ctx.save();
+
+        ctx.translate(
+            offsetX +
+            SCRATCH_WIDTH *
+            scale / 2,
+
+            offsetY +
+            SCRATCH_HEIGHT *
+            scale / 2
+        );
+
+        ctx.drawImage(
+            image,
+
+            -width *
+            scale / 2,
+
+            -height *
+            scale / 2,
+
+            width *
+            scale,
+
+            height *
+            scale
+        );
+
+        ctx.restore();
+
+    } catch (error) {
+
+        console.error(
+            "Backdrop failed:",
+            error
+        );
+    }
+}
+
+// ============================================================
+// Draw sprite
+// ============================================================
+
+async function drawSprite(target) {
+
+    if (
+        target.visible === false
+    ) {
+        return;
+    }
+
+    const costumes =
+        target.costumes || [];
+
+    if (!costumes.length) {
+        return;
+    }
+
+    let costumeIndex =
+        Number(
+            target.currentCostume
+        );
+
+    if (
+        !Number.isFinite(
+            costumeIndex
+        )
+    ) {
+        costumeIndex = 0;
+    }
+
+    costumeIndex =
+        Math.max(
+            0,
+            Math.min(
+                costumeIndex,
+                costumes.length - 1
+            )
+        );
+
+    const costume =
+        costumes[
+            costumeIndex
+        ];
+
+    const src =
+        findAsset(
+            costume.md5ext
+        );
+
+    if (!src) {
+
+        console.warn(
+            "Sprite asset not found:",
+            target.name,
+            costume.md5ext
+        );
+
+        return;
+    }
+
+    try {
+
+        const image =
+            await loadImage(
+                src
+            );
+
+        let bitmapWidth =
+            image.width;
+
+        let bitmapHeight =
+            image.height;
+
+        if (
+            costume.bitmapResolution
+        ) {
+
+            bitmapWidth /=
+                costume.bitmapResolution;
+
+            bitmapHeight /=
+                costume.bitmapResolution;
+        }
+
+        const size =
+            Number(
+                target.size
+            ) || 100;
+
+        const spriteWidth =
+            bitmapWidth *
+            (size / 100) *
+            scale;
+
+        const spriteHeight =
+            bitmapHeight *
+            (size / 100) *
+            scale;
+
+        const x =
+            Number(
+                target.x
+            ) || 0;
+
+        const y =
+            Number(
+                target.y
+            ) || 0;
+
+        const rotationCenterX =
+            Number(
+                costume.rotationCenterX
+            );
+
+        const rotationCenterY =
+            Number(
+                costume.rotationCenterY
+            );
+
+        const centerX =
+            Number.isFinite(
+                rotationCenterX
+            )
+                ? rotationCenterX
+                : bitmapWidth / 2;
+
+        const centerY =
+            Number.isFinite(
+                rotationCenterY
+            )
+                ? rotationCenterY
+                : bitmapHeight / 2;
+
+        const direction =
+            Number(
+                target.direction
+            );
+
+        const angle =
+            Number.isFinite(
+                direction
+            )
+                ? direction
+                : 90;
+
+        ctx.save();
+
+        ctx.translate(
+            toCanvasX(x),
+            toCanvasY(y)
+        );
+
+        // Scratch's default direction is 90°.
+        // Convert it into a canvas rotation.
+        const radians =
+            (
+                90 -
+                angle
+            ) *
+            Math.PI /
+            180;
+
+        ctx.rotate(
+            radians
+        );
+
+        ctx.drawImage(
+            image,
+
+            -centerX *
+            (size / 100) *
+            scale,
+
+            -centerY *
+            (size / 100) *
+            scale,
+
+            spriteWidth,
+
+            spriteHeight
+        );
+
+        ctx.restore();
+
+    } catch (error) {
+
+        console.error(
+            "Sprite failed:",
+            target.name,
+            error
+        );
+    }
+}
+
+// ============================================================
+// Render project
+// ============================================================
+
+async function renderProject() {
 
     ctx.clearRect(
         0,
@@ -516,8 +960,9 @@ function clearStage() {
         canvas.height
     );
 
+    // Black surrounding area.
     ctx.fillStyle =
-        "#ffffff";
+        "#000";
 
     ctx.fillRect(
         0,
@@ -525,26 +970,43 @@ function clearStage() {
         canvas.width,
         canvas.height
     );
+
+    // Draw backdrop.
+    await drawBackdrop();
+
+    // Draw sprites in Scratch layer order.
+    const targets =
+        PROJECT.targets || [];
+
+    for (
+        const target
+        of targets
+    ) {
+
+        if (
+            target.isStage
+        ) {
+            continue;
+        }
+
+        await drawSprite(
+            target
+        );
+    }
 }
 
-// --------------------------------------------------
-// Runtime startup
-// --------------------------------------------------
+// ============================================================
+// Start
+// ============================================================
 
-function startBattledisk() {
-
-    resizeCanvas();
-
-    clearStage();
-
-    loading.style.display =
-        "none";
+async function startBattledisk() {
 
     console.log(
-        "Battledisk loaded:"
+        "Battledisk runtime starting..."
     );
 
     console.log(
+        "Project:",
         PROJECT
     );
 
@@ -561,26 +1023,48 @@ function startBattledisk() {
             ASSETS
         ).length
     );
+
+    resizeCanvas();
+
+    try {
+
+        await renderProject();
+
+        loading.style.display =
+            "none";
+
+    } catch (error) {
+
+        console.error(
+            "Runtime error:",
+            error
+        );
+
+        loading.textContent =
+            "Battledisk runtime error. " +
+            "Check the browser console.";
+
+    }
 }
 
-// --------------------------------------------------
+// ============================================================
 // Resize
-// --------------------------------------------------
+// ============================================================
 
 window.addEventListener(
     "resize",
-    () => {
+    async () => {
 
         resizeCanvas();
 
-        clearStage();
+        await renderProject();
 
     }
 );
 
-// --------------------------------------------------
-// Start
-// --------------------------------------------------
+// ============================================================
+// Go!
+// ============================================================
 
 startBattledisk();
 
@@ -590,9 +1074,9 @@ startBattledisk();
 </html>`;
 }
 
-// --------------------------------------------------
-// Download HTML
-// --------------------------------------------------
+// ============================================================
+// Download
+// ============================================================
 
 function downloadHTML() {
 
@@ -652,7 +1136,8 @@ function downloadHTML() {
         link.href = url;
 
         link.download =
-            safeName + ".html";
+            safeName +
+            ".html";
 
         document.body.appendChild(
             link
@@ -677,7 +1162,9 @@ function downloadHTML() {
 
     } catch (error) {
 
-        console.error(error);
+        console.error(
+            error
+        );
 
         setStatus(
             "Build failed: " +
@@ -686,9 +1173,9 @@ function downloadHTML() {
     }
 }
 
-// --------------------------------------------------
+// ============================================================
 // File input
-// --------------------------------------------------
+// ============================================================
 
 function setupFileInput() {
 
@@ -733,9 +1220,9 @@ function setupFileInput() {
     );
 }
 
-// --------------------------------------------------
+// ============================================================
 // Package button
-// --------------------------------------------------
+// ============================================================
 
 function setupPackageButton() {
 
@@ -754,9 +1241,9 @@ function setupPackageButton() {
     );
 }
 
-// --------------------------------------------------
+// ============================================================
 // Drag and drop
-// --------------------------------------------------
+// ============================================================
 
 function setupDragAndDrop() {
 
@@ -829,9 +1316,9 @@ function setupDragAndDrop() {
     );
 }
 
-// --------------------------------------------------
+// ============================================================
 // Initialize
-// --------------------------------------------------
+// ============================================================
 
 document.addEventListener(
     "DOMContentLoaded",
