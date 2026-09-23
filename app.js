@@ -1,12 +1,7 @@
-// Battledisk Packager
-// app.js
-//
-// Scratch .sb3 -> standalone Battledisk HTML
-//
-// Requires JSZip to be loaded before this file:
-// https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js
-
 "use strict";
+
+// Battledisk Packager
+// Scratch .sb3 -> standalone HTML
 
 let currentProject = null;
 let currentAssets = {};
@@ -21,16 +16,13 @@ function $(id) {
 }
 
 function setStatus(message) {
-    const status =
-        $("status") ||
-        $("projectStatus") ||
-        $("romStatus");
+    const status = $("status");
 
     if (status) {
         status.textContent = message;
     }
 
-    console.log("[Battledisk Packager]", message);
+    console.log("[Battledisk]", message);
 }
 
 function escapeHTML(value) {
@@ -42,7 +34,6 @@ function escapeHTML(value) {
         .replace(/'/g, "&#039;");
 }
 
-// Safely place JSON inside a <script> tag.
 function safeJSONStringify(value) {
     return JSON.stringify(value)
         .replace(/</g, "\\u003c")
@@ -53,7 +44,7 @@ function safeJSONStringify(value) {
 }
 
 function getMimeType(filename) {
-    const ext = filename
+    const extension = filename
         .split(".")
         .pop()
         .toLowerCase();
@@ -75,16 +66,22 @@ function getMimeType(filename) {
         txt: "text/plain"
     };
 
-    return types[ext] || "application/octet-stream";
+    return types[extension] ||
+        "application/octet-stream";
 }
 
 function arrayBufferToBase64(buffer) {
     const bytes = new Uint8Array(buffer);
 
     let binary = "";
+
     const chunkSize = 0x8000;
 
-    for (let i = 0; i < bytes.length; i += chunkSize) {
+    for (
+        let i = 0;
+        i < bytes.length;
+        i += chunkSize
+    ) {
         const chunk = bytes.subarray(
             i,
             Math.min(i + chunkSize, bytes.length)
@@ -97,10 +94,12 @@ function arrayBufferToBase64(buffer) {
 }
 
 function makeDataURL(filename, buffer) {
-    const mime = getMimeType(filename);
-    const base64 = arrayBufferToBase64(buffer);
-
-    return `data:${mime};base64,${base64}`;
+    return (
+        "data:" +
+        getMimeType(filename) +
+        ";base64," +
+        arrayBufferToBase64(buffer)
+    );
 }
 
 // --------------------------------------------------
@@ -108,7 +107,6 @@ function makeDataURL(filename, buffer) {
 // --------------------------------------------------
 
 function getProjectName(project, fallback) {
-    // Some projects/exporters may include a projectName field.
     if (project.projectName) {
         return project.projectName;
     }
@@ -117,78 +115,98 @@ function getProjectName(project, fallback) {
         return project.name;
     }
 
-    // Try to find the stage.
     if (Array.isArray(project.targets)) {
-        const stage = project.targets.find(target => target.isStage);
+        const stage = project.targets.find(
+            target => target.isStage
+        );
 
-        if (stage && stage.name && stage.name !== "Stage") {
+        if (
+            stage &&
+            stage.name &&
+            stage.name !== "Stage"
+        ) {
             return stage.name;
         }
     }
 
-    // Last resort: use the .sb3 filename.
-    return fallback
-        .replace(/\.sb3$/i, "");
+    return fallback.replace(
+        /\.sb3$/i,
+        ""
+    );
 }
 
 function countTargets(project) {
-    if (!Array.isArray(project.targets)) {
-        return 0;
-    }
-
-    return project.targets.length;
+    return Array.isArray(project.targets)
+        ? project.targets.length
+        : 0;
 }
 
 // --------------------------------------------------
-// Load .SB3
+// Load SB3
 // --------------------------------------------------
 
 async function loadSB3(file) {
     if (!file) {
-        throw new Error("No .sb3 file was selected.");
+        throw new Error(
+            "No .sb3 file selected."
+        );
     }
 
-    if (!file.name.toLowerCase().endsWith(".sb3")) {
-        throw new Error("That file is not an .sb3 project.");
+    if (
+        !file.name
+            .toLowerCase()
+            .endsWith(".sb3")
+    ) {
+        throw new Error(
+            "Please select a Scratch .sb3 file."
+        );
     }
-
-    setStatus("Opening .sb3...");
 
     if (typeof JSZip === "undefined") {
         throw new Error(
-            "JSZip is not loaded. Make sure JSZip is included before app.js."
+            "JSZip is not loaded."
         );
     }
 
-    const buffer = await file.arrayBuffer();
+    setStatus("Opening project...");
 
-    const zip = await JSZip.loadAsync(buffer);
+    const buffer =
+        await file.arrayBuffer();
+
+    const zip =
+        await JSZip.loadAsync(buffer);
+
+    const projectFile =
+        zip.file("project.json");
+
+    if (!projectFile) {
+        throw new Error(
+            "project.json was not found."
+        );
+    }
 
     setStatus("Reading project.json...");
 
-    const projectEntry = zip.file("project.json");
-
-    if (!projectEntry) {
-        throw new Error(
-            "This .sb3 file does not contain project.json."
-        );
-    }
-
-    const projectText = await projectEntry.async("text");
+    const projectText =
+        await projectFile.async("text");
 
     let project;
 
     try {
-        project = JSON.parse(projectText);
-    } catch (error) {
+        project =
+            JSON.parse(projectText);
+    } catch {
         throw new Error(
-            "project.json could not be parsed as JSON."
+            "project.json contains invalid JSON."
         );
     }
 
-    if (!project.targets || !Array.isArray(project.targets)) {
+    if (
+        !project.targets ||
+        !Array.isArray(project.targets)
+    ) {
         throw new Error(
-            "project.json does not appear to be a valid Scratch project."
+            "This does not appear to be a valid Scratch project."
         );
     }
 
@@ -198,52 +216,41 @@ async function loadSB3(file) {
 
     setStatus("Extracting assets...");
 
-    const entries = Object.values(zip.files);
-
-    let assetCount = 0;
-
-    for (const entry of entries) {
+    for (const entry of Object.values(zip.files)) {
         if (entry.dir) {
             continue;
         }
 
-        const filename = entry.name;
-
-        // project.json is already stored separately.
-        if (filename === "project.json") {
+        if (entry.name === "project.json") {
             continue;
         }
 
         try {
-            const assetBuffer = await entry.async("arraybuffer");
+            const assetBuffer =
+                await entry.async("arraybuffer");
 
-            currentAssets[filename] = makeDataURL(
-                filename,
-                assetBuffer
-            );
-
-            assetCount++;
+            currentAssets[entry.name] =
+                makeDataURL(
+                    entry.name,
+                    assetBuffer
+                );
         } catch (error) {
             console.warn(
-                "Could not extract asset:",
-                filename,
+                "Could not extract:",
+                entry.name,
                 error
             );
         }
     }
 
-    setStatus(
-        `Loaded "${getProjectName(project, file.name)}" — ` +
-        `${countTargets(project)} targets, ` +
-        `${assetCount} assets.`
-    );
-
     updateProjectInfo();
 
-    return {
-        project,
-        assets: currentAssets
-    };
+    setStatus(
+        `Loaded ${getProjectName(
+            project,
+            file.name
+        )}`
+    );
 }
 
 // --------------------------------------------------
@@ -255,38 +262,33 @@ function updateProjectInfo() {
         return;
     }
 
-    const name = getProjectName(
-        currentProject,
-        currentFileName || "Battledisk Project"
-    );
+    const name =
+        getProjectName(
+            currentProject,
+            currentFileName
+        );
 
-    const targetCount = countTargets(currentProject);
-    const assetCount = Object.keys(currentAssets).length;
+    const targets =
+        countTargets(currentProject);
 
-    const projectNameElement =
-        $("projectName") ||
-        $("project");
+    const assets =
+        Object.keys(currentAssets).length;
 
-    if (projectNameElement) {
-        projectNameElement.textContent = name;
+    if ($("projectName")) {
+        $("projectName").textContent =
+            name;
     }
 
-    const projectStatusElement =
-        $("projectStatus");
-
-    if (projectStatusElement) {
-        projectStatusElement.textContent =
-            `${targetCount} targets • ${assetCount} assets`;
+    if ($("projectStatus")) {
+        $("projectStatus").textContent =
+            `${targets} targets • ${assets} assets`;
     }
 
-    const projectInfo =
-        $("projectInfo");
-
-    if (projectInfo) {
-        projectInfo.textContent =
+    if ($("projectInfo")) {
+        $("projectInfo").textContent =
             `Project: ${name}\n` +
-            `Targets: ${targetCount}\n` +
-            `Assets: ${assetCount}`;
+            `Targets: ${targets}\n` +
+            `Assets: ${assets}`;
     }
 }
 
@@ -297,142 +299,216 @@ function updateProjectInfo() {
 function generateHTML() {
     if (!currentProject) {
         throw new Error(
-            "Load an .sb3 project before packaging it."
+            "Load a project first."
         );
     }
 
-    const projectName = getProjectName(
-        currentProject,
-        currentFileName || "Battledisk Project"
-    );
+    const projectName =
+        getProjectName(
+            currentProject,
+            currentFileName ||
+            "Battledisk Project"
+        );
 
     const build = {
         format: "Battledisk HTML",
         version: "0.1.0",
-
         project: currentProject,
-
         assets: currentAssets
     };
 
-    const buildJSON = safeJSONStringify(build);
+    const buildJSON =
+        safeJSONStringify(build);
 
-    const title = escapeHTML(projectName);
+    const title =
+        escapeHTML(projectName);
 
     return `<!DOCTYPE html>
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>${title} - Battledisk</title>
+<head>
+
+<meta charset="UTF-8">
+
+<meta
+    name="viewport"
+    content="width=device-width,
+             initial-scale=1.0,
+             maximum-scale=1.0,
+             user-scalable=no"
+>
+
+<title>${title}</title>
 
 <style>
+
 html,
 body {
     margin: 0;
     padding: 0;
+
     width: 100%;
     height: 100%;
+
     overflow: hidden;
-    background: #111;
+
+    background: #000;
 }
 
 body {
-    font-family: Arial, sans-serif;
+    position: fixed;
+
+    left: 0;
+    top: 0;
+
+    width: 100vw;
+    height: 100vh;
 }
 
 #stage {
+    display: block;
+
     position: absolute;
-    left: 50%;
-    top: 50%;
 
-    width: 480px;
-    height: 360px;
+    left: 0;
+    top: 0;
 
-    transform: translate(-50%, -50%);
+    width: 100vw;
+    height: 100vh;
 
     background: white;
 }
 
 #loading {
     position: absolute;
+
     left: 50%;
     top: 50%;
 
-    transform: translate(-50%, -50%);
+    transform:
+        translate(-50%, -50%);
 
-    color: white;
-    font-size: 18px;
+    font-family: Arial, sans-serif;
+
+    font-size: 20px;
+
+    color: black;
 
     pointer-events: none;
 }
+
 </style>
+
 </head>
 
 <body>
 
-<canvas id="stage" width="480" height="360"></canvas>
+<canvas
+    id="stage"
+    width="480"
+    height="360"
+></canvas>
 
 <div id="loading">
-    Loading Battledisk project...
+    Loading...
 </div>
 
-<script id="battledisk-build" type="application/json">
+<script
+    id="battledisk-build"
+    type="application/json"
+>
 ${buildJSON}
 </script>
 
 <script>
+
 "use strict";
 
-/*
- * Battledisk Runtime
- *
- * This is the first runtime shell.
- * The actual Scratch/Battledisk block interpreter will be added
- * here as the packager develops.
- */
-
-const BUILD = JSON.parse(
-    document.getElementById("battledisk-build").textContent
-);
-
-const PROJECT = BUILD.project;
-const ASSETS = BUILD.assets;
-
-const canvas = document.getElementById("stage");
-const ctx = canvas.getContext("2d");
-
-const loading = document.getElementById("loading");
-
 // --------------------------------------------------
-// Basic project information
+// Battledisk Runtime
 // --------------------------------------------------
 
-console.log("Battledisk project loaded.");
-console.log("Project:", PROJECT);
-console.log("Assets:", Object.keys(ASSETS).length);
+const BUILD =
+    JSON.parse(
+        document
+            .getElementById(
+                "battledisk-build"
+            )
+            .textContent
+    );
+
+const PROJECT =
+    BUILD.project;
+
+const ASSETS =
+    BUILD.assets;
+
+const canvas =
+    document.getElementById(
+        "stage"
+    );
+
+const ctx =
+    canvas.getContext("2d");
+
+const loading =
+    document.getElementById(
+        "loading"
+    );
 
 // --------------------------------------------------
 // Scratch coordinate system
 // --------------------------------------------------
 
-const STAGE_WIDTH = 480;
-const STAGE_HEIGHT = 360;
+const SCRATCH_WIDTH = 480;
+const SCRATCH_HEIGHT = 360;
 
-function scratchToCanvasX(x) {
-    return x + STAGE_WIDTH / 2;
-}
+// --------------------------------------------------
+// Fullscreen canvas
+// --------------------------------------------------
 
-function scratchToCanvasY(y) {
-    return STAGE_HEIGHT / 2 - y;
+function resizeCanvas() {
+
+    const width =
+        window.innerWidth;
+
+    const height =
+        window.innerHeight;
+
+    canvas.width = width;
+    canvas.height = height;
 }
 
 // --------------------------------------------------
-// Basic stage
+// Coordinate conversion
+// --------------------------------------------------
+
+function scratchX(x) {
+
+    return (
+        canvas.width / 2 +
+        x *
+        (canvas.width /
+         SCRATCH_WIDTH)
+    );
+}
+
+function scratchY(y) {
+
+    return (
+        canvas.height / 2 -
+        y *
+        (canvas.height /
+         SCRATCH_HEIGHT)
+    );
+}
+
+// --------------------------------------------------
+// Stage
 // --------------------------------------------------
 
 function clearStage() {
+
     ctx.clearRect(
         0,
         0,
@@ -440,7 +516,8 @@ function clearStage() {
         canvas.height
     );
 
-    ctx.fillStyle = "#ffffff";
+    ctx.fillStyle =
+        "#ffffff";
 
     ctx.fillRect(
         0,
@@ -451,14 +528,25 @@ function clearStage() {
 }
 
 // --------------------------------------------------
-// Runtime initialization
+// Runtime startup
 // --------------------------------------------------
 
 function startBattledisk() {
+
+    resizeCanvas();
+
     clearStage();
 
-    loading.textContent =
-        "Battledisk project loaded";
+    loading.style.display =
+        "none";
+
+    console.log(
+        "Battledisk loaded:"
+    );
+
+    console.log(
+        PROJECT
+    );
 
     console.log(
         "Targets:",
@@ -467,26 +555,35 @@ function startBattledisk() {
             : 0
     );
 
-    /*
-     * Runtime implementation will go here.
-     *
-     * Planned systems:
-     *
-     * - Sprites
-     * - Costumes
-     * - Sounds
-     * - Variables
-     * - Lists
-     * - Broadcasts
-     * - Motion
-     * - Control
-     * - Sensing
-     * - Pen
-     * - Battledisk sequencing
-     */
+    console.log(
+        "Assets:",
+        Object.keys(
+            ASSETS
+        ).length
+    );
 }
 
+// --------------------------------------------------
+// Resize
+// --------------------------------------------------
+
+window.addEventListener(
+    "resize",
+    () => {
+
+        resizeCanvas();
+
+        clearStage();
+
+    }
+);
+
+// --------------------------------------------------
+// Start
+// --------------------------------------------------
+
 startBattledisk();
+
 </script>
 
 </body>
@@ -494,11 +591,13 @@ startBattledisk();
 }
 
 // --------------------------------------------------
-// Download generated HTML
+// Download HTML
 // --------------------------------------------------
 
 function downloadHTML() {
+
     if (!currentProject) {
+
         setStatus(
             "Load an .sb3 project first."
         );
@@ -506,53 +605,78 @@ function downloadHTML() {
         return;
     }
 
-    setStatus("Generating HTML...");
-
     try {
-        const html = generateHTML();
 
-        const projectName = getProjectName(
-            currentProject,
-            currentFileName || "Battledisk Project"
+        setStatus(
+            "Building HTML..."
         );
 
-        const safeName = projectName
-            .replace(/[<>:"/\\\\|?*]/g, "_")
-            .trim() || "Battledisk_Project";
+        const html =
+            generateHTML();
 
-        const filename =
-            `${safeName}.html`;
+        const projectName =
+            getProjectName(
+                currentProject,
+                currentFileName ||
+                "Battledisk Project"
+            );
 
-        const blob = new Blob(
-            [html],
-            {
-                type: "text/html;charset=utf-8"
-            }
-        );
+        const safeName =
+            projectName
+                .replace(
+                    /[<>:"/\\\\|?*]/g,
+                    "_"
+                )
+                .trim() ||
+            "Battledisk_Project";
+
+        const blob =
+            new Blob(
+                [html],
+                {
+                    type:
+                        "text/html;charset=utf-8"
+                }
+            );
 
         const url =
-            URL.createObjectURL(blob);
+            URL.createObjectURL(
+                blob
+            );
 
         const link =
-            document.createElement("a");
+            document.createElement(
+                "a"
+            );
 
         link.href = url;
-        link.download = filename;
 
-        document.body.appendChild(link);
+        link.download =
+            safeName + ".html";
+
+        document.body.appendChild(
+            link
+        );
 
         link.click();
 
         link.remove();
 
-        setTimeout(() => {
-            URL.revokeObjectURL(url);
-        }, 1000);
+        setTimeout(
+            () => {
+                URL.revokeObjectURL(
+                    url
+                );
+            },
+            1000
+        );
 
         setStatus(
-            `Built ${filename}`
+            "HTML build complete."
         );
+
     } catch (error) {
+
         console.error(error);
 
         setStatus(
@@ -567,22 +691,20 @@ function downloadHTML() {
 // --------------------------------------------------
 
 function setupFileInput() {
+
     const input =
         $("sb3Input") ||
         $("fileInput") ||
         $("projectInput");
 
     if (!input) {
-        console.warn(
-            "No .sb3 file input found."
-        );
-
         return;
     }
 
     input.addEventListener(
         "change",
         async event => {
+
             const file =
                 event.target.files[0];
 
@@ -591,9 +713,16 @@ function setupFileInput() {
             }
 
             try {
-                await loadSB3(file);
+
+                await loadSB3(
+                    file
+                );
+
             } catch (error) {
-                console.error(error);
+
+                console.error(
+                    error
+                );
 
                 setStatus(
                     "Error: " +
@@ -609,24 +738,19 @@ function setupFileInput() {
 // --------------------------------------------------
 
 function setupPackageButton() {
+
     const button =
         $("packageButton") ||
         $("package") ||
         $("compileButton");
 
     if (!button) {
-        console.warn(
-            "No package button found."
-        );
-
         return;
     }
 
     button.addEventListener(
         "click",
-        () => {
-            downloadHTML();
-        }
+        downloadHTML
     );
 }
 
@@ -635,6 +759,7 @@ function setupPackageButton() {
 // --------------------------------------------------
 
 function setupDragAndDrop() {
+
     const dropZone =
         $("dropZone");
 
@@ -645,6 +770,7 @@ function setupDragAndDrop() {
     dropZone.addEventListener(
         "dragover",
         event => {
+
             event.preventDefault();
 
             dropZone.classList.add(
@@ -656,6 +782,7 @@ function setupDragAndDrop() {
     dropZone.addEventListener(
         "dragleave",
         () => {
+
             dropZone.classList.remove(
                 "dragging"
             );
@@ -665,25 +792,33 @@ function setupDragAndDrop() {
     dropZone.addEventListener(
         "drop",
         async event => {
+
             event.preventDefault();
 
             dropZone.classList.remove(
                 "dragging"
             );
 
-            const files =
-                event.dataTransfer.files;
+            const file =
+                event
+                    .dataTransfer
+                    .files[0];
 
-            if (!files || !files.length) {
+            if (!file) {
                 return;
             }
 
-            const file = files[0];
-
             try {
-                await loadSB3(file);
+
+                await loadSB3(
+                    file
+                );
+
             } catch (error) {
-                console.error(error);
+
+                console.error(
+                    error
+                );
 
                 setStatus(
                     "Error: " +
@@ -695,14 +830,17 @@ function setupDragAndDrop() {
 }
 
 // --------------------------------------------------
-// Start
+// Initialize
 // --------------------------------------------------
 
 document.addEventListener(
     "DOMContentLoaded",
     () => {
+
         setupFileInput();
+
         setupPackageButton();
+
         setupDragAndDrop();
 
         setStatus(
