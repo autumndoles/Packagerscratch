@@ -1,16 +1,119 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Battledisk Project</title>
-</head>
-<body>
-    <canvas id="stage"></canvas>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <script>
-        // Battledisk runtime
-        // Embedded project
-        // Embedded assets
-    </script>
+    <title>Battledisk Packager</title>
+
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #111;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+
+        h1 {
+            margin-top: 0;
+        }
+
+        #dropZone {
+            border: 2px dashed #777;
+            padding: 40px;
+            text-align: center;
+            margin: 20px 0;
+            cursor: pointer;
+        }
+
+        #dropZone.dragging {
+            border-color: white;
+            background: #222;
+        }
+
+        button,
+        input {
+            margin: 5px 0;
+        }
+
+        button {
+            padding: 10px 18px;
+            cursor: pointer;
+        }
+
+        #projectInfo {
+            white-space: pre-line;
+            margin-top: 20px;
+        }
+
+        #status {
+            margin-top: 20px;
+            padding: 10px;
+            background: #222;
+        }
+
+        #projectName {
+            font-weight: bold;
+        }
+
+        #projectStatus {
+            margin-top: 5px;
+            color: #aaa;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>BATTLEDISK PACKAGER</h1>
+
+    <p>
+        Scratch .sb3 → Battledisk HTML
+    </p>
+
+    <div id="dropZone">
+        <strong>Drop your .SB3 file here</strong>
+        <br>
+        or
+        <br>
+        <input
+            id="sb3Input"
+            type="file"
+            accept=".sb3"
+        >
+    </div>
+
+    <h2>Project</h2>
+
+    <div id="projectName">
+        Not loaded
+    </div>
+
+    <div id="projectStatus">
+        No project loaded
+    </div>
+
+    <div id="projectInfo"></div>
+
+    <br>
+
+    <button id="packageButton">
+        PACKAGE HTML
+    </button>
+
+    <div id="status">
+        Waiting for .sb3 project...
+    </div>
+
+    <!--
+        JSZip MUST load before app.js.
+        app.js uses the global JSZip object.
+    -->
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+
+    <!-- Battledisk Packager -->
+    <script src="app.js"></script>
+
 </body>
 </html>
